@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-    <title>Niki Chiton Jesus Videos</title>
+    <title>Streaming Plus · Fe y Conocimiento</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
@@ -16,9 +16,9 @@
         <div class="logo" data-link="/">STREAM+</div>
         <div class="nav-links">
             <a href="#" data-link="/">Inicio</a>
-            <a href="#" data-link="/series">Series</a>
-            <a href="#" data-link="/peliculas">Películas</a>
-            <a href="#" data-link="/mi-lista">Mi lista</a>
+            <a href="#" data-link="/explorar">Explorar</a>
+            <a href="#" data-link="/biblioteca">Mi lista</a>
+            <a href="#" data-link="/buscar">Buscar</a>
         </div>
         <div class="search-icon-mobile" id="mobile-search-toggle">🔍</div>
     </header>
@@ -50,8 +50,8 @@
     <div id="universal-player" style="display: none;">
         <div class="player-container">
             <div class="player-header">
-                <button id="close-player">✕</button>
                 <div class="player-title"></div>
+                <button id="close-player">✕</button>
             </div>
             <video id="player-video" controls></video>
             <div class="player-episodes-list"></div>
@@ -62,10 +62,14 @@
     <div id="toast-notification" class="toast-notification"></div>
 
     <!-- Scripts modulares (SPA) -->
-    <script src="js/media.js"></script>
-    <script src="js/memoria.js"></script>
-    <script src="js/universal-player.js"></script>
-    <script src="js/watch.js"></script>
-    <script src="js/main.js"></script>
+    <script src="js/media.js" type="module"></script>
+    <script src="js/memoria.js" type="module"></script>
+    <script src="js/universal-player.js" type="module"></script>
+    <script src="js/watch.js" type="module"></script>
+    <script src="js/biblioteca.js" type="module"></script>
+    <script src="js/explorar.js" type="module"></script>
+    <script src="js/buscar.js" type="module"></script>
+    <script src="js/404.js" type="module"></script>
+    <script src="js/main.js" type="module"></script>
 </body>
 </html>
