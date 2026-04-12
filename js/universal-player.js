@@ -1,88 +1,63 @@
-// ==================== REPRODUCTOR UNIVERSAL ====================
-// Se abre con openVideoPlayer(episodios, indexInicial)
-// episodios puede ser un array o un objeto con propiedad 'episodes'.
-// También acepta una URL directa con openPlayer(url)
+import { recordPlayback, setVideoProgress, getVideoProgress, showToast } from './memoria.js';
 
-window.openVideoPlayer = function(data, startIndex = 0) {
-    let episodesList = [];
-    if (Array.isArray(data)) {
-        episodesList = data;
-    } else if (data.episodes) {
-        episodesList = data.episodes;
-    } else if (typeof data === 'string') {
-        // Es una URL única
-        const ep = window.getEpisodeByUrl(data);
-        if (ep) episodesList = [ep];
-        else return;
-    } else {
-        console.error('Formato no soportado para reproductor');
-        return;
-    }
-    if (episodesList.length === 0) return;
-    
-    // Asegurar que cada episodio tenga los campos mínimos
-    episodesList = episodesList.map(ep => ({
-        ...ep,
-        url: ep.url,
-        title: ep.title,
-        thumbnail: ep.thumbnail,
-        description: ep.description,
-        skipIntro: ep.skipIntro || null,
-        skipRecap: ep.skipRecap || null,
-        skipCredits: ep.skipCredits || null
-    }));
-    
-    window._currentPlayerEpisodes = episodesList;
-    window._currentPlayerIndex = Math.min(startIndex, episodesList.length - 1);
-    
+let currentEpisodes = [];
+let currentIndex = 0;
+let saveInterval = null;
+
+export function openVideoPlayer(episodesList, startIndex = 0) {
+    if (!episodesList || episodesList.length === 0) return;
+    currentEpisodes = episodesList;
+    currentIndex = Math.min(startIndex, episodesList.length - 1);
     renderPlayer();
-    loadEpisode(window._currentPlayerIndex);
+    loadEpisode(currentIndex);
     document.getElementById('universal-player').style.display = 'flex';
-};
+}
 
-window.openPlayer = function(videoUrl) {
-    window.openVideoPlayer(videoUrl);
-};
+export function openPlayer(videoUrl, episodesList = null) {
+    if (episodesList) {
+        openVideoPlayer(episodesList, episodesList.findIndex(ep => ep.url === videoUrl));
+    } else {
+        // Buscar episodio por url en la base global (se inyecta desde main)
+        if (window.__episodes__) {
+            const ep = window.__episodes__.find(e => e.url === videoUrl);
+            if (ep) openVideoPlayer([ep], 0);
+        }
+    }
+}
 
 function renderPlayer() {
     const container = document.getElementById('universal-player');
-    if (!container) return;
-    const episodes = window._currentPlayerEpisodes;
-    const current = episodes[window._currentPlayerIndex];
-    
-    const playerHTML = `
+    const ep = currentEpisodes[currentIndex];
+    container.innerHTML = `
         <div class="player-container">
             <div class="player-header">
-                <div class="player-title">${escapeHtml(current.title)}</div>
+                <div class="player-title">${escapeHtml(ep.title)}</div>
                 <button id="close-player">✕</button>
             </div>
             <video id="player-video" controls></video>
             <div class="player-episodes-list" id="player-episodes-list"></div>
         </div>
     `;
-    container.innerHTML = playerHTML;
-    
-    // Cargar lista de episodios
-    const listContainer = document.getElementById('player-episodes-list');
-    if (listContainer && episodes.length > 1) {
-        listContainer.innerHTML = episodes.map((ep, idx) => `
+    if (currentEpisodes.length > 1) {
+        const listDiv = document.getElementById('player-episodes-list');
+        listDiv.innerHTML = currentEpisodes.map((ep, idx) => `
             <div class="player-episode-item" data-index="${idx}">
-                <img src="${ep.thumbnail}" alt="${ep.title}" loading="lazy">
+                <img src="${ep.thumbnail}" alt="${ep.title}">
                 <div>${ep.title}</div>
             </div>
         `).join('');
-        listContainer.querySelectorAll('.player-episode-item').forEach(el => {
+        listDiv.querySelectorAll('.player-episode-item').forEach(el => {
             el.addEventListener('click', () => {
                 const idx = parseInt(el.dataset.index);
-                if (!isNaN(idx) && idx !== window._currentPlayerIndex) {
-                    window._currentPlayerIndex = idx;
-                    loadEpisode(idx);
+                if (idx !== currentIndex) {
+                    currentIndex = idx;
+                    loadEpisode(currentIndex);
                 }
             });
         });
     }
-    
     document.getElementById('close-player').addEventListener('click', () => {
+        if (saveInterval) clearInterval(saveInterval);
         document.getElementById('universal-player').style.display = 'none';
         const video = document.getElementById('player-video');
         if (video) video.pause();
@@ -90,41 +65,29 @@ function renderPlayer() {
 }
 
 function loadEpisode(index) {
-    const episodes = window._currentPlayerEpisodes;
-    const ep = episodes[index];
-    if (!ep) return;
-    
+    const ep = currentEpisodes[index];
     const video = document.getElementById('player-video');
     if (!video) return;
-    
     // Actualizar título
-    const titleDiv = document.querySelector('.player-title');
-    if (titleDiv) titleDiv.textContent = ep.title;
-    
+    document.querySelector('.player-title').textContent = ep.title;
     video.src = ep.url;
     video.load();
-    
-    // Recuperar progreso guardado
-    const progress = window.getVideoProgress(ep.url);
+    const progress = getVideoProgress(ep.url);
     let startTime = 0;
     if (progress && progress.currentTime && progress.currentTime < progress.duration - 10) {
         startTime = progress.currentTime;
-        window.showToast(`Reanudando desde ${formatTime(progress.currentTime)}`, 'info');
+        showToast(`Reanudando desde ${formatTime(progress.currentTime)}`);
     }
-    
     video.addEventListener('loadedmetadata', function onLoad() {
         video.currentTime = startTime;
         video.play();
         video.removeEventListener('loadedmetadata', onLoad);
     });
-    
-    // Guardar progreso cada 5 segundos y al pausar
-    let saveInterval;
+    if (saveInterval) clearInterval(saveInterval);
     const saveProgress = () => {
         if (video.duration && !isNaN(video.duration) && video.currentTime) {
-            window.setVideoProgress(ep.url, video.currentTime, video.duration);
-            // También actualizar historial general
-            window.recordPlayback(ep, video.currentTime, video.duration);
+            setVideoProgress(ep.url, video.currentTime, video.duration);
+            recordPlayback(ep, video.currentTime, video.duration);
         }
     };
     video.addEventListener('play', () => {
@@ -134,40 +97,29 @@ function loadEpisode(index) {
     video.addEventListener('ended', () => {
         saveProgress();
         clearInterval(saveInterval);
-        window.recordPlayback(ep, video.duration, video.duration, true);
-        // Pasar al siguiente episodio automáticamente si existe
-        if (index + 1 < episodes.length) {
-            window.showToast('Siguiente episodio...');
-            window._currentPlayerIndex = index + 1;
-            loadEpisode(window._currentPlayerIndex);
+        recordPlayback(ep, video.duration, video.duration, true);
+        if (index + 1 < currentEpisodes.length) {
+            showToast('Siguiente episodio...');
+            currentIndex = index + 1;
+            loadEpisode(currentIndex);
         } else {
-            window.showToast('Serie completada');
+            showToast('Contenido completado');
         }
     });
-    
-    // Manejo de saltos (intro, recap, créditos)
+    // Saltos opcionales
     if (ep.skipIntro) {
         video.addEventListener('timeupdate', function onTime() {
-            if (video.currentTime >= parseTime(ep.skipIntro.start) && video.currentTime < parseTime(ep.skipIntro.end)) {
-                video.currentTime = parseTime(ep.skipIntro.end);
+            const [start, end] = [parseTime(ep.skipIntro.start), parseTime(ep.skipIntro.end)];
+            if (video.currentTime >= start && video.currentTime < end) {
+                video.currentTime = end;
                 video.removeEventListener('timeupdate', onTime);
-                window.showToast('Saltando introducción');
-            }
-        });
-    }
-    if (ep.skipRecap) {
-        video.addEventListener('timeupdate', function onTime() {
-            if (video.currentTime >= parseTime(ep.skipRecap.start) && video.currentTime < parseTime(ep.skipRecap.end)) {
-                video.currentTime = parseTime(ep.skipRecap.end);
-                video.removeEventListener('timeupdate', onTime);
-                window.showToast('Saltando resumen');
+                showToast('Saltando introducción');
             }
         });
     }
 }
 
 function parseTime(timeStr) {
-    // Formato "HH:MM:SS" o "MM:SS"
     const parts = timeStr.split(':').map(Number);
     if (parts.length === 3) return parts[0]*3600 + parts[1]*60 + parts[2];
     if (parts.length === 2) return parts[0]*60 + parts[1];
@@ -191,3 +143,7 @@ function escapeHtml(str) {
         return m;
     });
 }
+
+// Exponer globalmente para uso desde otros módulos
+window.openVideoPlayer = openVideoPlayer;
+window.openPlayer = openPlayer;
