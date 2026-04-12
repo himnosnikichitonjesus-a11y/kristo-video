@@ -1,6 +1,3 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Feed de Streaming Plus</title>
@@ -175,7 +172,7 @@
         
         /* Hover especial para tarjetas cortas (se expanden a rectangular) */
         .item.short:hover {
-            width: 533px;
+            width: 533px;  /* Aproximadamente 300px * 16/9 */
             height: 300px;
             z-index: 100;
             transform: scale(1) translateY(-10px);
@@ -226,7 +223,7 @@
         flex-shrink: 0;
     }
 
-    /* === EL POP-OUT (sin escala, posicionado exactamente sobre la tarjeta) === */
+    /* === EL POP-OUT (Efecto Prime Video Hover) === */
     #hover-popout {
         position: absolute;
         z-index: 9999;
@@ -236,7 +233,8 @@
         overflow: hidden;
         opacity: 0;
         pointer-events: none;
-        transition: opacity 0.2s ease;
+        transition: opacity 0.2s ease, transform 0.2s ease;
+        transform: scale(0.95);
         width: 320px;
         display: flex;
         flex-direction: column;
@@ -244,8 +242,7 @@
     #hover-popout.active {
         opacity: 1;
         pointer-events: auto;
-        /* Sin escala para que no se desplace de la posición de la miniatura */
-        transform: scale(1);
+        transform: scale(1.15);
     }
     .popout-video-container {
         width: 100%;
@@ -393,8 +390,6 @@
     }
     .item.continue .play-btn img { width: 100%; height: 100%; object-fit: contain; }
 </style>
-</head>
-<body>
 
 <div class="header-bar">
     <div class="search-container">
@@ -413,6 +408,7 @@
 <div class="feed-container" id="main-feed">
     
 </div>
+
 
 <div id="hover-popout">
     <div class="popout-video-container">
@@ -487,6 +483,7 @@
             format: "standard continue", 
             isContinue: true,
             filter: () => {
+                // Simulamos historial para el ejemplo
                 const history = JSON.parse(localStorage.getItem('watchedHistory') || '[]');
                 const unfinished = history.filter(h => !h.completed)
                     .sort((a, b) => new Date(dates[b.url] || 0) - new Date(dates[a.url] || 0))
@@ -500,6 +497,7 @@
             title: "Top 10 en tu país hoy", 
             format: "top10", 
             filter: () => {
+                // Simulamos Top 10 con episodios destacados y algunos aleatorios
                 const top10Episodes = episodes.filter(e => e.categories.includes("Destacados") || e.categories.includes("Documental")).slice(0, 10);
                 return top10Episodes;
             }
@@ -562,6 +560,7 @@
             let cardsHTML = '';
             
             if (section.format.includes('top10')) {
+                // Formato especial para Top 10
                 cardsHTML = items.map((ep, index) => `
                     <div class="top10-item" style="display: flex; align-items: center;">
                         <span class="top10-number">${index + 1}</span>
@@ -573,8 +572,10 @@
                         </div>
                     </div>
                 `).join('');
+                // Envolvemos cada item en un div para mantener el número y la tarjeta juntos
                 cardsHTML = `<div style="display: flex; gap: 0; align-items: center;">${cardsHTML}</div>`;
             } else {
+                // Formato normal
                 cardsHTML = items.map(ep => {
                     let itemHTML = `<div class="item ${section.format}" data-url="${ep.url}" data-title="${ep.title}" data-img="${ep.thumbnail}" data-img2="${ep.thumbnail2 || ep.thumbnail}" data-desc="${ep.desc || ''}">`;
                     itemHTML += `<img src="${ep.thumbnail}" alt="${ep.title}" data-original="${ep.thumbnail}">`;
@@ -588,6 +589,7 @@
                         `;
                     }
                     
+                    // Para tarjetas cortas, agregar información expandida
                     if (section.format.includes('short')) {
                         itemHTML += `
                             <div class="expanded-info">
@@ -628,13 +630,14 @@
 
     generateFeeds();
 
+    // Función para desplazar carruseles
     window.scrollCarousel = function(id, direction) {
         const carousel = document.getElementById(`carousel-${id}`);
         const scrollAmount = carousel.clientWidth * 0.7;
         carousel.scrollBy({ left: scrollAmount * direction, behavior: 'smooth' });
     };
 
-    // === LÓGICA DEL POP-OUT CORREGIDA (POSICIÓN EXACTA SOBRE LA TARJETA) ===
+    // === LÓGICA DEL POP-OUT (HOVER PARA TARJETAS STANDARD) ===
     const popout = document.getElementById('hover-popout');
     const popImg = document.getElementById('popout-img');
     const popTitle = document.getElementById('popout-title');
@@ -645,75 +648,75 @@
     let isHoveringPopout = false;
     let currentCard = null;
 
-    function setupHoverEffects() {
-        document.querySelectorAll('.item.standard:not(.short)').forEach(card => {
-            card.addEventListener('mouseenter', (e) => {
-                if (window.innerWidth <= 768) return;
-                if (card.classList.contains('short')) return;
+    // === LÓGICA DEL POP-OUT CORREGIDA (POSICIÓN EXACTA SOBRE LA TARJETA) ===
+function setupHoverEffects() {
+    document.querySelectorAll('.item.standard:not(.short)').forEach(card => {
+        card.addEventListener('mouseenter', (e) => {
+            if (window.innerWidth <= 768) return;
+            if (card.classList.contains('short')) return;
 
-                currentCard = card;
-                clearTimeout(hoverTimer);
+            currentCard = card;
+            clearTimeout(hoverTimer);
+            
+            // Cambiar a thumbnail2 inmediatamente
+            const img = card.querySelector('img');
+            const img2 = card.dataset.img2;
+            if (img2 && img2 !== img.src) {
+                img.src = img2;
+            }
+            
+            hoverTimer = setTimeout(() => {
+                const rect = card.getBoundingClientRect();
+                const data = card.dataset;
+
+                popImg.src = data.img2 || data.img;
+                popTitle.textContent = data.title;
+                popDesc.textContent = data.desc || 'Sin descripción disponible.';
+                popPlay.href = data.url;
+
+                // === CORRECCIÓN: Posicionar EXACTAMENTE sobre la tarjeta ===
+                // El pop-out tiene width: 320px, la tarjeta tiene width: 280px
+                // Para centrarlo exactamente sobre la tarjeta, necesitamos:
+                // left = posición izquierda de la tarjeta - (ancho_popout - ancho_tarjeta)/2
                 
-                // Cambiar a thumbnail2
-                const img = card.querySelector('img');
-                const img2 = card.dataset.img2;
-                if (img2 && img2 !== img.src) {
-                    img.src = img2;
+                const popoutWidth = 320;
+                const cardWidth = rect.width;
+                const offsetX = (popoutWidth - cardWidth) / 2;
+                
+                let topPos = rect.top + window.scrollY; // Misma posición Y que la tarjeta
+                let leftPos = rect.left + window.scrollX - offsetX;
+
+                // Ajustes para que no se salga de la pantalla
+                if (leftPos < 10) leftPos = 10;
+                if (leftPos + popoutWidth > window.innerWidth - 10) {
+                    leftPos = window.innerWidth - popoutWidth - 10;
                 }
                 
-                hoverTimer = setTimeout(() => {
-                    const rect = card.getBoundingClientRect();
-                    const data = card.dataset;
+                // Si está muy arriba, lo movemos un poco hacia abajo
+                if (topPos < 10) topPos = 10;
 
-                    popImg.src = data.img2 || data.img;
-                    popTitle.textContent = data.title;
-                    popDesc.textContent = data.desc || 'Sin descripción disponible.';
-                    popPlay.href = data.url;
-
-                    // Posicionar el pop-out JUSTO SOBRE la miniatura, alineado a la izquierda
-                    const popoutWidth = 320;
-                    const cardWidth = rect.width;
-                    
-                    let topPos = rect.top + window.scrollY;
-                    let leftPos = rect.left + window.scrollX;
-                    
-                    // Ajustes para que no se salga de la pantalla
-                    if (leftPos + popoutWidth > window.innerWidth + window.scrollX) {
-                        leftPos = window.innerWidth + window.scrollX - popoutWidth - 10;
-                    }
-                    if (leftPos < window.scrollX + 10) {
-                        leftPos = window.scrollX + 10;
-                    }
-                    if (topPos + popout.offsetHeight > window.innerHeight + window.scrollY) {
-                        topPos = window.innerHeight + window.scrollY - popout.offsetHeight - 10;
-                    }
-                    if (topPos < window.scrollY + 10) {
-                        topPos = window.scrollY + 10;
-                    }
-                    
-                    popout.style.top = `${topPos}px`;
-                    popout.style.left = `${leftPos}px`;
-                    
-                    popout.classList.add('active');
-                }, 400);
-            });
-
-            card.addEventListener('mouseleave', () => {
-                // Restaurar miniatura original
-                const img = card.querySelector('img');
-                if (img.dataset.original) {
-                    img.src = img.dataset.original;
-                }
-                clearTimeout(hoverTimer);
-                setTimeout(() => {
-                    if (!isHoveringPopout) {
-                        popout.classList.remove('active');
-                    }
-                }, 100);
-            });
+                popout.style.top = `${topPos}px`;
+                popout.style.left = `${leftPos}px`;
+                
+                popout.classList.add('active');
+            }, 400);
         });
 
-        // Tarjetas cortas: no usan pop-out, solo expansión
+        card.addEventListener('mouseleave', () => {
+            // Restaurar thumbnail original
+            const img = card.querySelector('img');
+            img.src = img.dataset.original;
+            
+            clearTimeout(hoverTimer);
+            setTimeout(() => {
+                if (!isHoveringPopout) {
+                    popout.classList.remove('active');
+                }
+            }, 100);
+        });
+    });
+
+        // Para tarjetas cortas, no usar pop-out, solo el hover de expansión
         document.querySelectorAll('.item.short').forEach(card => {
             card.addEventListener('mouseenter', () => {
                 const img = card.querySelector('img');
@@ -724,19 +727,18 @@
             });
             card.addEventListener('mouseleave', () => {
                 const img = card.querySelector('img');
-                if (img.dataset.original) {
-                    img.src = img.dataset.original;
-                }
+                img.src = img.dataset.original;
             });
         });
 
+        // Mantener popout abierto si el ratón está encima
         popout.addEventListener('mouseenter', () => { isHoveringPopout = true; });
         popout.addEventListener('mouseleave', () => { 
             isHoveringPopout = false; 
             popout.classList.remove('active');
             if (currentCard) {
                 const img = currentCard.querySelector('img');
-                if (img.dataset.original) img.src = img.dataset.original;
+                img.src = img.dataset.original;
             }
         });
     }
@@ -859,6 +861,7 @@
 
     // === CONTINUAR VIENDO (simulado) ===
     async function populateContinue() {
+        // Simulamos algunos elementos en historial para el ejemplo
         if (!localStorage.getItem('watchedHistory')) {
             const mockHistory = [
                 { url: "/jacob-y-su-promesa-a-dios", completed: false, progress: 45 },
@@ -867,6 +870,7 @@
             ];
             localStorage.setItem('watchedHistory', JSON.stringify(mockHistory));
         }
+        // Regenerar la sección de continuar viendo
         const continueSection = sectionsConfig.find(s => s.id === 'continuar');
         if (continueSection) {
             const items = continueSection.filter();
@@ -890,6 +894,7 @@
                 }
             }
         }
+        // Reconfigurar efectos hover después de regenerar
         setTimeout(setupHoverEffects, 100);
     }
 
@@ -898,5 +903,3 @@
     setTimeout(setupHoverEffects, 500);
     window.addEventListener('resize', () => setTimeout(setupHoverEffects, 300));
 </script>
-</body>
-</html>
