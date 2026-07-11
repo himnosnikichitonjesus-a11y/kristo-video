@@ -13,9 +13,9 @@ window.LISTMOVIE = [
     id: "001-terror",
     titulo: "Terror en la ciudad",
     urls: {
-      HD:  "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
-      SD:  "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
-      LOW: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+      HD:  "https://archive.org/download/nikichitonjesus/Navidad0002.mp4",
+      SD:  "https://archive.org/download/nikichitonjesus/Navidad001.mp4",
+      LOW: "https://archive.org/download/nikichitonjesus/Navidad003.mp4"
     },
     trailer: "",
     portada:       "https://picsum.photos/seed/terror1/800/450",
