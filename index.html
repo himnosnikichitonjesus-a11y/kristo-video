@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Streaming · Inicio</title>
+  <meta name="description" content="Plataforma de streaming — series y películas.">
+  <style>
+    :root {
+      --bg: #0b0b0f;
+      --bg2: #14141c;
+      --fg: #f5f5f7;
+      --muted: #9a9aa5;
+      --accent: #e50914;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: var(--bg); color: var(--fg);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    header.site {
+      position: sticky; top: 0; z-index: 20; backdrop-filter: blur(10px);
+      background: rgba(11,11,15,.75); border-bottom: 1px solid rgba(255,255,255,.05);
+      padding: 14px 24px; display: flex; align-items: center; gap: 18px;
+    }
+    header.site .logo { font-weight: 800; letter-spacing: .04em; color: var(--accent); font-size: 20px; }
+    header.site nav { display: flex; gap: 18px; font-size: 14px; opacity: .85; }
+    main { padding: 24px; max-width: 1400px; margin: 0 auto; }
+    h2.section { margin: 32px 0 12px; font-size: 20px; font-weight: 700; }
+    .grid {
+      display: grid; gap: 14px;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    }
+    .card {
+      background: var(--bg2); border-radius: 10px; overflow: hidden; cursor: pointer;
+      transition: transform .15s, box-shadow .15s; position: relative;
+    }
+    .card:hover { transform: translateY(-3px); box-shadow: 0 10px 30px rgba(0,0,0,.5); }
+    .card .thumb {
+      width: 100%; aspect-ratio: 16/9; background: #222 center/cover no-repeat; display: block;
+    }
+    .card .info { padding: 10px 12px; }
+    .card .info .t { font-weight: 600; font-size: 14px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .card .info .m { color: var(--muted); font-size: 12px; margin-top: 3px; }
+    .badge {
+      position: absolute; top: 8px; left: 8px; background: rgba(0,0,0,.7);
+      padding: 3px 8px; border-radius: 999px; font-size: 11px; letter-spacing: .04em;
+    }
+    .progress-bar {
+      position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: rgba(255,255,255,.15);
+    }
+    .progress-bar > i {
+      display: block; height: 100%; background: var(--accent);
+    }
+    .hero {
+      background: linear-gradient(135deg, #1a1a25, #0b0b0f);
+      border-radius: 14px; padding: 28px; margin-top: 8px;
+    }
+    .hero h1 { margin: 0 0 6px; font-size: 26px; }
+    .hero p { margin: 0; color: var(--muted); font-size: 14px; max-width: 60ch; }
+  </style>
+</head>
+<body>
+  <header class="site">
+    <div class="logo">LOVSTREAM</div>
+    <nav>
+      <a href="#peliculas" style="color:inherit;text-decoration:none;">Películas</a>
+      <a href="#series" style="color:inherit;text-decoration:none;">Series</a>
+      <a href="#episodios" style="color:inherit;text-decoration:none;">Episodios</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <h1>Descubre y reproduce</h1>
+      <p>Elige una película para verla suelta, una serie para reproducirla completa desde el episodio 1, o un episodio individual para empezar por él.</p>
+    </section>
+
+    <h2 class="section" id="series">Series</h2>
+    <div class="grid" id="grid-series"></div>
+
+    <h2 class="section" id="peliculas">Películas</h2>
+    <div class="grid" id="grid-peliculas"></div>
+
+    <h2 class="section" id="episodios">Episodios (elección libre)</h2>
+    <div class="grid" id="grid-episodios"></div>
+  </main>
+
+  <script src="/listmovie.js"></script>
+  <script src="/play.js"></script>
+  <script>
+    (function () {
+      const api = window.LISTMOVIE_API;
+
+      function progressOf(id) {
+        try {
+          const d = JSON.parse(localStorage.getItem("lv_player_progress_v1") || "{}")[id];
+          return d ? (d.t / d.d) * 100 : 0;
+        } catch (e) { return 0; }
+      }
+
+      function card(x, opts) {
+        opts = opts || {};
+        const img = x.portada || x.portadaVista || "";
+        const badge = opts.badge || (x.type === "serie" ? "SERIE" : x.type === "pelicula" ? "PELÍCULA" : "EPISODIO");
+        const meta = x.type === "episodio"
+          ? ("T" + x.temporada + " · E" + x.episodio)
+          : (x.type === "serie" ? "Serie" : "Película");
+        const p = progressOf(x.id);
+        const el = document.createElement("div");
+        el.className = "card";
+        el.innerHTML = `
+          <span class="badge">${badge}</span>
+          <div class="thumb" style="background-image:url('${img}')"></div>
+          <div class="info">
+            <div class="t">${x.titulo}</div>
+            <div class="m">${meta}</div>
+          </div>
+          ${p > 1 ? `<div class="progress-bar"><i style="width:${p}%"></i></div>` : ""}
+        `;
+        el.onclick = () => {
+          // IndexModoSerie: clic en miniatura de serie -> reproducir serie completa desde ep1
+          //                 (o reanudar donde se quedó en algún ep)
+          // IndexModoPelicula: pelicula suelta
+          // IndexLibre: clic directo en un episodio
+          if (x.type === "serie") {
+            window.Player.open(x, { mode: "serie" });
+          } else if (x.type === "pelicula") {
+            window.Player.open(x, { mode: "pelicula" });
+          } else {
+            window.Player.open(x, { mode: "libre" });
+          }
+        };
+        return el;
+      }
+
+      function render() {
+        const gs = document.getElementById("grid-series");
+        const gp = document.getElementById("grid-peliculas");
+        const ge = document.getElementById("grid-episodios");
+        api.allSeries().forEach(s => gs.appendChild(card(s)));
+        api.allMovies().forEach(m => gp.appendChild(card(m)));
+        api.allEpisodes().forEach(e => ge.appendChild(card(e)));
+      }
+      render();
+
+      // Soporte ?play=<id> para abrir directo
+      const q = new URLSearchParams(location.search).get("play");
+      if (q) {
+        const it = api.findById(q);
+        if (it) {
+          const m = it.type === "serie" ? "serie" : it.type === "pelicula" ? "pelicula" : "libre";
+          window.Player.open(it, { mode: m });
+        }
+      }
+    })();
+  </script>
+</body>
+</html>
